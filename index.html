@@ -2,126 +2,129 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<title>Tafels Oefenen – Confetti & Timer</title>
+<title>Tafels oefenen</title>
+
 <style>
-    body {
-        font-family: Arial, sans-serif;
-        background: #f0f8ff;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-        overflow: hidden;
-    }
-    .game {
-        background: #fff;
-        padding: 30px;
-        border-radius: 15px;
-        width: 360px;
-        text-align: center;
-        box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-        position: relative;
-        z-index: 1;
-    }
-    h2 {
-        color: #1e90ff;
-    }
-    input {
-        font-size: 24px;
-        width: 100px;
-        text-align: center;
-        margin-top: 10px;
-    }
-    button {
-        margin-top: 10px;
-        padding: 10px 20px;
-        font-size: 18px;
-        cursor: pointer;
-        border-radius: 8px;
-        border: none;
-        background-color: #1e90ff;
-        color: white;
-        transition: 0.3s;
-    }
-    button:hover {
-        background-color: #63b3ed;
-    }
-    .feedback {
-        margin-top: 15px;
-        font-weight: bold;
-        font-size: 18px;
-    }
-    .timer-bar {
-        height: 20px;
-        background-color: #1e90ff;
-        margin-bottom: 10px;
-        border-radius: 10px;
-        transition: width 1s linear;
-    }
-    .score, .time {
-        margin-top: 10px;
-        font-size: 18px;
-        color: #1e90ff;
-    }
-    canvas {
-        position: fixed;
-        pointer-events: none;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: 0;
-    }
+body {
+    font-family: Arial, sans-serif;
+    background: #eaf6ff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+.game {
+    background: white;
+    padding: 25px;
+    border-radius: 15px;
+    width: 380px;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+
+h2 { color: #1e90ff; }
+
+.tables {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 5px;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
+.timer-bar {
+    height: 18px;
+    background: #1e90ff;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    transition: width 1s linear;
+}
+
+input {
+    font-size: 22px;
+    width: 100px;
+    text-align: center;
+}
+
+button {
+    margin-top: 10px;
+    padding: 10px 18px;
+    font-size: 18px;
+    border-radius: 8px;
+    border: none;
+    background: #1e90ff;
+    color: white;
+    cursor: pointer;
+}
+
+button:disabled {
+    background: #aaa;
+}
+
+.feedback {
+    margin-top: 10px;
+    font-weight: bold;
+}
+
+.info {
+    margin-top: 6px;
+    color: #1e90ff;
+}
+
+canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
 </style>
 </head>
+
 <body>
 
 <div class="game">
-    <h2>Tafels Oefenen</h2>
+    <h2>Tafels oefenen</h2>
+
+    <p><b>Kies tafels:</b></p>
+    <div class="tables" id="tables"></div>
+
+    <button id="startBtn">START</button>
 
     <div class="timer-bar" id="timerBar"></div>
-    <div id="question">Klik op START om te beginnen!</div>
 
-    <input type="number" id="answer" placeholder="antwoord">
+    <div id="question">Kies tafels en druk op start</div>
+
+    <input type="number" id="answer" disabled>
     <br>
-    <button id="startBtn">START</button>
-    <button id="checkBtn">CHECK</button>
+    <button id="checkBtn" disabled>CHECK</button>
 
     <div class="feedback" id="feedback"></div>
 
-    <div class="score">Goed achter elkaar: <span id="score">0</span> / 20</div>
-    <div class="time">Totale tijd: <span id="totalTime">0s</span></div>
-    <div class="time">Recordtijd: <span id="recordTime">--</span></div>
-
-    <!-- Geluid -->
-    <audio id="soundGood">
-        <source src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg" type="audio/ogg">
-    </audio>
-    <audio id="soundBad">
-        <source src="https://actions.google.com/sounds/v1/cartoon/boing.ogg" type="audio/ogg">
-    </audio>
-
+    <div class="info">Goed achter elkaar: <span id="score">0</span> / 20</div>
+    <div class="info">Totale tijd: <span id="totalTime">0s</span></div>
+    <div class="info">Recordtijd: <span id="recordTime">--</span></div>
 </div>
 
 <canvas id="confetti"></canvas>
 
 <script>
-// ---------- Spel variabelen ----------
+const TIME_LIMIT = 5;
+
+let tablesChosen = [];
 let a, b;
 let score = 0;
-let timeLeft = 10;
-let timer;
-let repeatSameQuestion = false;
-let gameStarted = false;
+let repeatSame = false;
+let timeLeft, timer;
+let startTime, totalTimer, elapsedTime = 0;
+let record = localStorage.getItem("tafelsRecord");
 
-let startTime;
-let elapsedTime = 0;
-let totalTimer;
-let recordTime = localStorage.getItem('tafelsRecord') || null;
-
-// HTML elementen
-const answerInput = document.getElementById("answer");
+const tablesDiv = document.getElementById("tables");
 const startBtn = document.getElementById("startBtn");
+const answerInput = document.getElementById("answer");
 const checkBtn = document.getElementById("checkBtn");
 const questionDiv = document.getElementById("question");
 const feedbackDiv = document.getElementById("feedback");
@@ -129,80 +132,81 @@ const scoreSpan = document.getElementById("score");
 const timerBar = document.getElementById("timerBar");
 const totalTimeSpan = document.getElementById("totalTime");
 const recordTimeSpan = document.getElementById("recordTime");
-const soundGood = document.getElementById("soundGood");
-const soundBad = document.getElementById("soundBad");
 
-// Laat record zien
-recordTimeSpan.innerText = recordTime ? recordTime + "s" : "--";
+recordTimeSpan.innerText = record ? record + "s" : "--";
 
-// ---------- Start instellen ----------
-answerInput.disabled = true;
-checkBtn.disabled = true;
+for (let i = 1; i <= 10; i++) {
+    tablesDiv.innerHTML += `
+        <label><input type="checkbox" value="${i}"> ${i}</label>
+    `;
+}
 
-startBtn.addEventListener("click", () => {
-    gameStarted = true;
+startBtn.onclick = () => {
+    tablesChosen = [...document.querySelectorAll("input[type=checkbox]:checked")]
+        .map(c => Number(c.value));
+
+    if (tablesChosen.length === 0) {
+        alert("Kies minstens één tafel");
+        return;
+    }
+
+    clearInterval(timer);
+    clearInterval(totalTimer);
+
+    score = 0;
+    elapsedTime = 0;
+    repeatSame = false;
+    scoreSpan.innerText = "0";
+    totalTimeSpan.innerText = "0s";
+    feedbackDiv.innerText = "";
+
     startBtn.disabled = true;
     answerInput.disabled = false;
     checkBtn.disabled = false;
+    answerInput.value = "";
     answerInput.focus();
-    questionDiv.innerText = "";
-    
-    // Start totale tijd
+
     startTime = Date.now();
-    elapsedTime = 0;
     totalTimer = setInterval(() => {
         elapsedTime = Math.floor((Date.now() - startTime) / 1000);
         totalTimeSpan.innerText = elapsedTime + "s";
     }, 1000);
-    
+
     newQuestion();
+};
+
+answerInput.addEventListener("keydown", e => {
+    if (e.key === "Enter") checkAnswer();
 });
 
-checkBtn.addEventListener("click", () => {
-    if (gameStarted) checkAnswer();
-});
+checkBtn.onclick = checkAnswer;
 
-// ---------- Enter-toets voor Check ----------
-answerInput.addEventListener("keydown", function(event) {
-    if (event.key === "Enter") {
-        checkAnswer();
-    }
-});
-
-// ---------- Timer ----------
 function startTimer() {
     clearInterval(timer);
-    timeLeft = 10;
-    updateTimerBar();
+    timeLeft = TIME_LIMIT;
+    updateBar();
 
     timer = setInterval(() => {
         timeLeft--;
-        updateTimerBar();
-
+        updateBar();
         if (timeLeft <= 0) {
             clearInterval(timer);
-            handleWrong(`⏰ Tijd voorbij! Antwoord was ${a * b}`);
+            wrong(`⏰ Tijd voorbij! ${a} × ${b} = ${a*b}`);
         }
     }, 1000);
 }
 
-function updateTimerBar() {
-    let width = (timeLeft / 10) * 100;
-    timerBar.style.width = width + "%";
-    if(width > 6){
-        timerBar.style.backgroundColor = "#1e90ff";
-    } else {
-        timerBar.style.backgroundColor = "#ff4d4d";
-    }
+function updateBar() {
+    timerBar.style.width = (timeLeft / TIME_LIMIT) * 100 + "%";
+    timerBar.style.background = timeLeft <= 1 ? "#ff4d4d" : "#1e90ff";
 }
 
-// ---------- Nieuwe som ----------
 function newQuestion() {
-    if (!repeatSameQuestion) {
-        a = Math.floor(Math.random() * 10) + 1;
+    if (!repeatSame) {
+        a = tablesChosen[Math.floor(Math.random() * tablesChosen.length)];
         b = Math.floor(Math.random() * 10) + 1;
     }
-    repeatSameQuestion = false;
+    repeatSame = false;
 
     questionDiv.innerText = `${a} × ${b} = ?`;
     answerInput.value = "";
@@ -211,110 +215,77 @@ function newQuestion() {
     startTimer();
 }
 
-// ---------- Fout ----------
-function handleWrong(message) {
+function wrong(msg) {
     score = 0;
     scoreSpan.innerText = score;
-    feedbackDiv.innerText = message + " — opnieuw beginnen!";
-    soundBad.play();
-    repeatSameQuestion = true;
-
-    setTimeout(newQuestion, 1500);
+    feedbackDiv.innerText = msg + " → opnieuw!";
+    repeatSame = true;
+    setTimeout(newQuestion, 1200);
 }
 
-// ---------- Antwoord checken ----------
 function checkAnswer() {
     clearInterval(timer);
-    const userAnswer = Number(answerInput.value);
-    const correctAnswer = a * b;
+    const user = Number(answerInput.value);
+    const correct = a * b;
 
-    if (userAnswer === correctAnswer) {
+    if (user === correct) {
         score++;
         scoreSpan.innerText = score;
         feedbackDiv.innerText = "✅ Goed!";
-        soundGood.play();
-
-        if (score === 20) {
-            clearInterval(totalTimer);
-            questionDiv.innerText = "🎉 GEHAALD!";
-            feedbackDiv.innerText = `Fantastisch! 20 goede antwoorden achter elkaar in ${elapsedTime}s!`;
-            answerInput.disabled = true;
-            checkBtn.disabled = true;
-
-            // Update record
-            if (!recordTime || elapsedTime < recordTime) {
-                localStorage.setItem('tafelsRecord', elapsedTime);
-                recordTime = elapsedTime;
-                recordTimeSpan.innerText = recordTime + "s";
-                feedbackDiv.innerText += " 🏆 Nieuw record!";
-            }
-
-            launchConfetti();
-            return;
-        }
-
-        setTimeout(newQuestion, 800);
+        if (score === 20) finish();
+        else setTimeout(newQuestion, 600);
     } else {
-        handleWrong(`❌ Fout, het antwoord is ${correctAnswer}`);
+        wrong(`❌ Fout! ${a} × ${b} = ${correct}`);
     }
 }
 
-// ---------- Confetti ----------
-function launchConfetti() {
+function finish() {
+    clearInterval(timer);
+    clearInterval(totalTimer);
+
+    questionDiv.innerText = "🎉 GEHAALD!";
+    feedbackDiv.innerText = `20 goed in ${elapsedTime}s`;
+    answerInput.disabled = true;
+    checkBtn.disabled = true;
+
+    if (!record || elapsedTime < record) {
+        localStorage.setItem("tafelsRecord", elapsedTime);
+        recordTimeSpan.innerText = elapsedTime + "s";
+        feedbackDiv.innerText += " 🏆 NIEUW RECORD!";
+    }
+
+    startBtn.disabled = false;
+    startBtn.innerText = "OPNIEUW STARTEN";
+
+    confetti();
+}
+
+function confetti() {
     const canvas = document.getElementById("confetti");
     const ctx = canvas.getContext("2d");
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    canvas.width = innerWidth;
+    canvas.height = innerHeight;
 
-    const confetti = [];
-    const confettiCount = 150;
-
-    for (let i = 0; i < confettiCount; i++) {
-        confetti.push({
-            x: Math.random() * canvas.width,
-            y: Math.random() * canvas.height - canvas.height,
-            r: Math.random() * 6 + 4,
-            d: Math.random() * confettiCount,
-            color: `hsl(${Math.random() * 360}, 100%, 50%)`,
-            tilt: Math.random() * 10 - 10,
-            tiltAngleIncrement: Math.random() * 0.07 + 0.05
-        });
-    }
+    const pieces = Array.from({length:150}, () => ({
+        x: Math.random()*canvas.width,
+        y: Math.random()*canvas.height - canvas.height,
+        c: `hsl(${Math.random()*360},100%,50%)`
+    }));
 
     function draw() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        for (let i = 0; i < confetti.length; i++) {
-            let c = confetti[i];
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        pieces.forEach(p => {
+            ctx.strokeStyle = p.c;
             ctx.beginPath();
-            ctx.lineWidth = c.r;
-            ctx.strokeStyle = c.color;
-            ctx.moveTo(c.x + c.tilt + c.r / 2, c.y);
-            ctx.lineTo(c.x + c.tilt, c.y + c.tilt + c.r / 2);
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x+4, p.y+10);
             ctx.stroke();
-        }
-        update();
+            p.y += 3;
+            if (p.y > canvas.height) p.y = -20;
+        });
+        requestAnimationFrame(draw);
     }
-
-    function update() {
-        for (let i = 0; i < confetti.length; i++) {
-            let c = confetti[i];
-            c.tiltAngle += c.tiltAngleIncrement;
-            c.y += (Math.cos(c.d) + 3 + c.r / 2) / 2;
-            c.tilt = Math.sin(c.tiltAngle) * 15;
-
-            if (c.y > canvas.height) {
-                c.x = Math.random() * canvas.width;
-                c.y = -20;
-            }
-        }
-    }
-
-    function animate() {
-        draw();
-        requestAnimationFrame(animate);
-    }
-
-    animate();
+    draw();
 }
 </script>
 
